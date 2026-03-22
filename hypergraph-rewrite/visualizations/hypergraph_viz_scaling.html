@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase Transition — Substrate Size Scaling</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap');
+  
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    background: #0a0e14;
+    font-family: 'Space Mono', monospace;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+  
+  canvas { 
+    display: block; 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+  }
+  
+  #hud {
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    z-index: 10;
+    pointer-events: none;
+  }
+  
+  #phase-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: #c8a8ff;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    text-shadow: 0 0 12px #c8a8ff66;
+  }
+  
+  #phase-subtitle {
+    font-size: 9px;
+    color: #4a7a9b;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  
+  #narrative {
+    font-size: 9px;
+    line-height: 1.7;
+    color: #5a8aab;
+    max-width: 380px;
+    border-left: 1px solid #1e3a52;
+    padding-left: 14px;
+  }
+  
+  #controls {
+    position: absolute;
+    bottom: 30px;
+    left: 30px;
+    z-index: 10;
+    display: flex;
+    gap: 10px;
+  }
+  
+  .ctrl-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 0.18em;
+    color: #4a7a9b;
+    border: 1px solid #1e3a52;
+    background: rgba(10,14,20,0.8);
+    padding: 9px 14px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.3s;
+  }
+  
+  .ctrl-btn:hover {
+    color: #c8a8ff;
+    border-color: #c8a8ff44;
+  }
+  
+  .ctrl-btn.active {
+    color: #c8a8ff;
+    border-color: #c8a8ff66;
+  }
+  
+  #phase-dots {
+    position: absolute;
+    bottom: 45px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    gap: 12px;
+  }
+  
+  .phase-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #1e3a52;
+    transition: all 0.4s;
+  }
+  
+  .phase-dot.active {
+    background: #c8a8ff;
+    box-shadow: 0 0 10px #c8a8ff88;
+  }
+  
+  .phase-dot.done {
+    background: #7aff9a;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="hud">
+  <div id="phase-title">PHASE TRANSITION — SUBSTRATE SIZE SCALING</div>
+  <div id="phase-subtitle">PHASE 1 — THREE DYNAMICAL REGIMES</div>
+  <div id="narrative">
+    N=3: Below critical threshold — constructor rules geometrically impossible.<br>
+    N=4: At threshold — constructor effect emerges (97% exclusivity).<br>
+    N=5: Above threshold — superlinear amplification (99.94% exclusivity).
+  </div>
+</div>
+
+<div id="phase-dots">
+  <div class="phase-dot active"></div>
+  <div class="phase-dot"></div>
+  <div class="phase-dot"></div>
+</div>
+
+<div id="controls">
+  <div class="ctrl-btn" onclick="goPhase(1)">PHASE 1</div>
+  <div class="ctrl-btn" onclick="goPhase(2)">PHASE 2</div>
+  <div class="ctrl-btn" onclick="goPhase(3)">PHASE 3</div>
+  <div class="ctrl-btn" id="btn-auto" onclick="toggleAuto()">AUTO →</div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let W, H, cx, cy;
+let phase = 1;
+let t = 0, lastTS = 0, dt = 0;
+let autoMode = false, autoTimer = 0;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function node(x, y, color, size, glow, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (glow) {
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = color;
+  }
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function edge2(x1, y1, x2, y2, color, alpha, width = 1.5) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = color;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function label(text, x, y, color, size, alpha = 1, align = 'center') {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.font = `${size}px 'Space Mono', monospace`;
+  ctx.textAlign = align;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function labelBold(text, x, y, color, size, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.font = `${size}px 'Orbitron', sans-serif`;
+  ctx.fontWeight = '700';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function goPhase(p) {
+  phase = p;
+  autoTimer = 0;
+  
+  document.querySelectorAll('.phase-dot').forEach((dot, i) => {
+    dot.classList.remove('active', 'done');
+    if (i + 1 === p) dot.classList.add('active');
+    if (i + 1 < p) dot.classList.add('done');
+  });
+  
+  const titles = [
+    'PHASE TRANSITION — SUBSTRATE SIZE SCALING',
+    'CRITICAL THRESHOLD — N = 4',
+    'SUPERLINEAR AMPLIFICATION — N = 5'
+  ];
+  const subtitles = [
+    'PHASE 1 — THREE DYNAMICAL REGIMES',
+    'PHASE 2 — EMERGENCE AT CRITICAL POINT',
+    'PHASE 3 — SCALING ABOVE THRESHOLD'
+  ];
+  const narratives = [
+    'N=3: Below critical threshold — constructor rules geometrically impossible.<br>N=4: At threshold — constructor effect emerges (97% exclusivity).<br>N=5: Above threshold — superlinear amplification (99.94% exclusivity).',
+    'At N=4, substrate geometry permits constructor-gated rules for the first time.<br>Δ boundary appears: 103 of 106 configs (97%) are impossible without C.<br>This is Von Neumann\'s complexity threshold, computationally demonstrated.',
+    'From N=4 to N=5: config count grows 74× (103 → 7,891).<br>Exclusivity increases: 97% → 99.94%.<br>Effect dominates with substrate size — not a boundary artifact.'
+  ];
+  
+  document.getElementById('phase-title').textContent = titles[p - 1];
+  document.getElementById('phase-subtitle').textContent = subtitles[p - 1];
+  document.getElementById('narrative').innerHTML = narratives[p - 1];
+}
+
+function toggleAuto() {
+  autoMode = !autoMode;
+  const btn = document.getElementById('btn-auto');
+  btn.textContent = autoMode ? 'AUTO ■' : 'AUTO →';
+  btn.classList.toggle('active', autoMode);
+  if (autoMode) {
+    goPhase(1);
+    autoTimer = 0;
+  }
+}
+
+// Phase 1: Three panels showing N=3, N=4, N=5
+function renderPhase1() {
+  const panel1X = cx - W * 0.28;
+  const panel2X = cx;
+  const panel3X = cx + W * 0.28;
+  const panelY = cy;
+  
+  // N=3 panel (subcritical)
+  ctx.save();
+  ctx.strokeStyle = '#ff6b6b44';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(panel1X - 80, panelY - 100, 160, 200);
+  ctx.restore();
+  
+  labelBold('N = 3', panel1X, panelY - 120, '#ff6b6b', 10);
+  label('SUBCRITICAL', panel1X, panelY - 105, '#ff6b6b88', 8);
+  
+  // Two identical nodes (baseline = constructor-gated)
+  node(panel1X - 15, panelY - 20, '#6eb5ff', 4, true, 0.5);
+  node(panel1X + 15, panelY - 20, '#6eb5ff', 4, true, 0.5);
+  edge2(panel1X - 15, panelY - 20, panel1X + 15, panelY - 20, '#6eb5ff', 0.3);
+  
+  label('Δ = 0', panel1X, panelY + 50, '#ff6b6baa', 11, 0.9);
+  label('Rules blocked', panel1X, panelY + 70, '#ff6b6b66', 8, 0.7);
+  label('geometrically', panel1X, panelY + 85, '#ff6b6b66', 8, 0.7);
+  
+  // N=4 panel (critical)
+  ctx.save();
+  ctx.strokeStyle = '#ffd77044';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(panel2X - 80, panelY - 100, 160, 200);
+  ctx.restore();
+  
+  labelBold('N = 4', panel2X, panelY - 120, '#ffd770', 10);
+  label('CRITICAL', panel2X, panelY - 105, '#ffd770aa', 8);
+  
+  // Dense cluster (Δ = 103)
+  for (let i = 0; i < 20; i++) {
+    const angle = (i / 20) * Math.PI * 2 + t * 0.2;
+    const r = 20 + (i % 2) * 15;
+    const nx = panel2X + Math.cos(angle) * r;
+    const ny = panelY + Math.sin(angle) * r;
+    const pulse = 0.4 + 0.3 * Math.abs(Math.sin(t * 0.5 + i * 0.2));
+    node(nx, ny, '#ffd770', 2.5, false, pulse);
+  }
+  
+  label('Δ = 103', panel2X, panelY + 50, '#ffd770aa', 11, 0.9);
+  label('97% exclusive', panel2X, panelY + 70, '#ffd77088', 8, 0.8);
+  
+  // N=5 panel (supercritical)
+  ctx.save();
+  ctx.strokeStyle = '#7aff9a44';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(panel3X - 80, panelY - 100, 160, 200);
+  ctx.restore();
+  
+  labelBold('N = 5', panel3X, panelY - 120, '#7aff9a', 10);
+  label('SUPERCRITICAL', panel3X, panelY - 105, '#7aff9aaa', 8);
+  
+  // Very dense cluster (Δ ≈ 7891)
+  for (let i = 0; i < 35; i++) {
+    const angle = (i / 35) * Math.PI * 2 + t * 0.25;
+    const r = 15 + (i % 4) * 12;
+    const nx = panel3X + Math.cos(angle) * r;
+    const ny = panelY + Math.sin(angle) * r;
+    const pulse = 0.5 + 0.3 * Math.abs(Math.sin(t * 0.6 + i * 0.15));
+    node(nx, ny, '#7aff9a', 2, false, pulse);
+  }
+  
+  label('Δ ~ 7,891', panel3X, panelY + 50, '#7aff9aaa', 11, 0.9);
+  label('99.94% exclusive', panel3X, panelY + 70, '#7aff9a88', 8, 0.8);
+  
+  // Threshold marker
+  const thrY = panelY + 120;
+  label('N_c ≈ 3.5', cx, thrY, '#c8a8ff88', 9, 0.7);
+  
+  // Arrow showing transition
+  ctx.save();
+  ctx.strokeStyle = '#c8a8ff44';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 6]);
+  ctx.beginPath();
+  ctx.moveTo(panel1X + 85, panelY);
+  ctx.lineTo(panel2X - 85, panelY);
+  ctx.stroke();
+  ctx.moveTo(panel2X + 85, panelY);
+  ctx.lineTo(panel3X - 85, panelY);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Phase 2: Focus on N=4 critical emergence
+function renderPhase2() {
+  const leftX = cx - W * 0.22;
+  const rightX = cx + W * 0.22;
+  
+  // Left: R_free (3 configs)
+  ctx.save();
+  ctx.strokeStyle = '#3a6a8a44';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(leftX - 90, cy - 110, 180, 220);
+  ctx.restore();
+  
+  labelBold('R_free only', leftX, cy - 130, '#6eb5ff88', 9);
+  label('N=4 baseline', leftX, cy - 115, '#6eb5ff55', 8);
+  
+  [-35, 0, 35].forEach((dy) => {
+    node(leftX, cy + dy, '#6eb5ff', 4.5, true, 0.6);
+  });
+  edge2(leftX, cy - 35, leftX, cy, '#6eb5ff', 0.4);
+  edge2(leftX, cy, leftX, cy + 35, '#6eb5ff', 0.35);
+  
+  label('3 configs', leftX, cy + 80, '#6eb5ff88', 10, 0.8);
+  label('mean AI: 0.071', leftX, cy + 95, '#6eb5ff66', 9, 0.7);
+  
+  // Right: R_free + R_c (106 configs)
+  ctx.save();
+  ctx.strokeStyle = '#ffd77044';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(rightX - 90, cy - 110, 180, 220);
+  ctx.restore();
+  
+  labelBold('R_free + R_c + C', rightX, cy - 130, '#ffd77088', 9);
+  label('N=4 constructor', rightX, cy - 115, '#ffd77055', 8);
+  
+  for (let i = 0; i < 25; i++) {
+    const angle = (i / 25) * Math.PI * 2 + t * 0.3;
+    const r = 30 + (i % 3) * 18;
+    const nx = rightX + Math.cos(angle) * r;
+    const ny = cy + Math.sin(angle) * r;
+    const pulse = 0.4 + 0.4 * Math.abs(Math.sin(t * 0.5 + i * 0.25));
+    node(nx, ny, '#ffd770', 2.8, false, pulse);
+  }
+  
+  label('106 configs', rightX, cy + 80, '#ffd770aa', 10, 0.9);
+  label('mean AI: 0.611', rightX, cy + 95, '#ffd77088', 9, 0.8);
+  
+  // Center annotation
+  label('CRITICAL THRESHOLD', cx, cy - 150, '#c8a8ffaa', 10, 0.9);
+  label('Δ = 103 (97%)', cx, cy + 130, '#c8a8ffcc', 12, 1);
+  
+  // Arrow
+  ctx.save();
+  ctx.strokeStyle = '#c8a8ff66';
+  ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = '#c8a8ff';
+  ctx.beginPath();
+  ctx.moveTo(leftX + 85, cy);
+  ctx.lineTo(rightX - 85, cy);
+  ctx.stroke();
+  ctx.fillStyle = '#c8a8ff';
+  ctx.beginPath();
+  ctx.moveTo(rightX - 80, cy - 6);
+  ctx.lineTo(rightX - 70, cy);
+  ctx.lineTo(rightX - 80, cy + 6);
+  ctx.fill();
+  ctx.restore();
+}
+
+// Phase 3: Scaling N=4 vs N=5
+function renderPhase3() {
+  const leftX = cx - W * 0.22;
+  const rightX = cx + W * 0.22;
+  
+  // Left: N=4 (Δ=103)
+  ctx.save();
+  ctx.strokeStyle = '#ffd77044';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(leftX - 90, cy - 110, 180, 220);
+  ctx.restore();
+  
+  labelBold('N = 4', leftX, cy - 130, '#ffd770aa', 10);
+  label('at threshold', leftX, cy - 115, '#ffd77066', 8);
+  
+  for (let i = 0; i < 22; i++) {
+    const angle = (i / 22) * Math.PI * 2 + t * 0.25;
+    const r = 28 + (i % 3) * 16;
+    const nx = leftX + Math.cos(angle) * r;
+    const ny = cy + Math.sin(angle) * r;
+    const pulse = 0.5 + 0.3 * Math.abs(Math.sin(t * 0.5 + i * 0.2));
+    node(nx, ny, '#ffd770', 2.5, false, pulse);
+  }
+  
+  label('Δ = 103', leftX, cy + 80, '#ffd770aa', 11, 0.9);
+  label('97% exclusive', leftX, cy + 95, '#ffd77088', 9, 0.8);
+  
+  // Right: N=5 (Δ≈7891)
+  ctx.save();
+  ctx.strokeStyle = '#7aff9a44';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(rightX - 90, cy - 110, 180, 220);
+  ctx.restore();
+  
+  labelBold('N = 5', rightX, cy - 130, '#7aff9aaa', 10);
+  label('above threshold', rightX, cy - 115, '#7aff9a66', 8);
+  
+  for (let i = 0; i < 40; i++) {
+    const angle = (i / 40) * Math.PI * 2 + t * 0.3;
+    const r = 20 + (i % 5) * 12;
+    const nx = rightX + Math.cos(angle) * r;
+    const ny = cy + Math.sin(angle) * r;
+    const pulse = 0.5 + 0.4 * Math.abs(Math.sin(t * 0.6 + i * 0.15));
+    node(nx, ny, '#7aff9a', 2.2, false, pulse);
+  }
+  
+  label('Δ ~ 7,891', rightX, cy + 80, '#7aff9aaa', 11, 0.9);
+  label('99.94% exclusive', rightX, cy + 95, '#7aff9a88', 9, 0.8);
+  
+  // Center annotation
+  label('SUPERLINEAR SCALING', cx, cy - 150, '#c8a8ffaa', 10, 0.9);
+  label('74× growth', cx, cy + 125, '#c8a8ffcc', 12, 1);
+  label('Effect amplifies above threshold', cx, cy + 145, '#c8a8ff88', 9, 0.8);
+}
+
+function render(ts) {
+  const rawDT = (ts - lastTS) / 1000;
+  lastTS = ts;
+  dt = Math.min(rawDT, 0.05);
+  t += dt;
+  
+  ctx.clearRect(0, 0, W, H);
+  
+  if (autoMode) {
+    autoTimer += dt;
+    if (autoTimer > 7) {
+      const nextPhase = phase === 3 ? 1 : phase + 1;
+      goPhase(nextPhase);
+    }
+  }
+  
+  if (phase === 1) renderPhase1();
+  if (phase === 2) renderPhase2();
+  if (phase === 3) renderPhase3();
+  
+  requestAnimationFrame(render);
+}
+
+goPhase(1);
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

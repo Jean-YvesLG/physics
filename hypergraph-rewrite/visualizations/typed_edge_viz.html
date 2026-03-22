@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AT_CT_Hypergraph — The Typed Edge Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Orbitron:wght@400;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #080c12;
+    overflow: hidden;
+    font-family: 'Space Mono', monospace;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  canvas {
+    display: block;
+    position: absolute;
+    top: 0; left: 0;
+  }
+
+  #hud {
+    position: absolute;
+    top: 28px;
+    left: 32px;
+    z-index: 10;
+    pointer-events: none;
+    max-width: 320px;
+  }
+
+  #hud-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: #7ecfff;
+    text-transform: uppercase;
+    opacity: 0.9;
+    text-shadow: 0 0 12px #7ecfff88;
+    transition: color 1.2s, text-shadow 1.2s;
+    margin-bottom: 6px;
+  }
+
+  #hud-label.danger  { color: #ff6b6b; text-shadow: 0 0 16px #ff6b6b88; }
+  #hud-label.warning { color: #ffa07a; text-shadow: 0 0 16px #ffa07a88; }
+  #hud-label.insight { color: #c8a8ff; text-shadow: 0 0 16px #c8a8ff88; }
+  #hud-label.clean   { color: #7aff9a; text-shadow: 0 0 16px #7aff9a88; }
+  #hud-label.gold    { color: #ffd770; text-shadow: 0 0 16px #ffd77088; }
+
+  #phase-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: #4a7a9b;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  #narrative {
+    font-family: 'Space Mono', monospace;
+    font-size: 8.5px;
+    line-height: 1.7;
+    color: #4a7a9b;
+    letter-spacing: 0.05em;
+    border-left: 1px solid #1e3a52;
+    padding-left: 12px;
+    max-width: 300px;
+    transition: color 0.8s;
+  }
+
+  #narrative.danger  { color: #ff6b6b88; border-color: #ff6b6b44; }
+  #narrative.warning { color: #ffa07a99; border-color: #ffa07a44; }
+  #narrative.insight { color: #c8a8ffaa; border-color: #c8a8ff44; }
+  #narrative.clean   { color: #7aff9aaa; border-color: #7aff9a44; }
+  #narrative.gold    { color: #ffd770aa; border-color: #ffd77044; }
+
+  #counter-block {
+    position: absolute;
+    top: 28px;
+    right: 32px;
+    z-index: 10;
+    text-align: right;
+    pointer-events: none;
+    border: 1px solid #1e3a52;
+    padding: 10px 16px;
+    background: rgba(8,18,30,0.85);
+    backdrop-filter: blur(4px);
+    min-width: 160px;
+    transition: border-color 0.8s;
+  }
+
+  #counter-block.danger  { border-color: #ff6b6b44; }
+  #counter-block.clean   { border-color: #7aff9a44; }
+  #counter-block.gold    { border-color: #ffd77044; }
+
+  #counter-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 0.22em;
+    color: #3a6a8a;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  #counter-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 38px;
+    font-weight: 900;
+    color: #7ecfff;
+    line-height: 1;
+    text-shadow: 0 0 20px #7ecfff44;
+    transition: color 0.6s, text-shadow 0.6s;
+  }
+
+  #counter-value.danger { color: #ff6b6b; text-shadow: 0 0 30px #ff6b6b88; animation: flash-danger 0.5s ease-in-out infinite; }
+  #counter-value.clean  { color: #7aff9a; text-shadow: 0 0 20px #7aff9a66; }
+  #counter-value.gold   { color: #ffd770; text-shadow: 0 0 30px #ffd77088; }
+
+  @keyframes flash-danger {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  #counter-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 0.1em;
+    color: #3a6a8a;
+    margin-top: 4px;
+    transition: color 0.6s;
+  }
+
+  #counter-sub.danger { color: #ff6b6b88; }
+  #counter-sub.clean  { color: #7aff9a88; }
+  #counter-sub.gold   { color: #ffd77088; }
+
+  #controls {
+    position: absolute;
+    bottom: 28px;
+    left: 32px;
+    z-index: 10;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .ctrl-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 0.16em;
+    color: #3a6a8a;
+    border: 1px solid #1e3a52;
+    background: rgba(8,18,30,0.8);
+    padding: 8px 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.3s;
+  }
+
+  .ctrl-btn:hover { color: #7ecfff; border-color: #7ecfff44; text-shadow: 0 0 8px #7ecfff66; }
+  .ctrl-btn.active { color: #ffd770; border-color: #ffd77066; }
+
+  #phase-dots {
+    position: absolute;
+    bottom: 40px;
+    right: 32px;
+    z-index: 10;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .phase-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #1e3a52;
+    transition: background 0.5s, box-shadow 0.5s;
+  }
+  .phase-dot.active { background: #7ecfff; box-shadow: 0 0 8px #7ecfff88; }
+  .phase-dot.done   { background: #ffd770; box-shadow: 0 0 8px #ffd77066; }
+
+  #legend {
+    position: absolute;
+    bottom: 28px;
+    right: 32px;
+    z-index: 10;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .leg-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .leg-swatch {
+    width: 20px; height: 2px;
+  }
+
+  .leg-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 7.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #3a6a8a;
+  }
+
+  #abort-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 20;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    color: #ff6b6b;
+    text-shadow: 0 0 40px #ff6b6bcc, 0 0 80px #ff6b6b66;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s;
+    text-align: center;
+  }
+
+  #abort-sub {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: #ff6b6b88;
+    margin-top: 8px;
+    font-weight: 400;
+  }
+
+  #type-badge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 20;
+    pointer-events: none;
+    opacity: 0;
+    text-align: center;
+    transition: opacity 0.8s;
+  }
+
+  #type-badge-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    padding: 12px 28px;
+    border: 1px solid #c8a8ff66;
+    background: rgba(8,12,28,0.92);
+    color: #c8a8ff;
+    text-shadow: 0 0 20px #c8a8ff88;
+  }
+
+  #grid-canvas { opacity: 0.15; }
+</style>
+</head>
+<body>
+
+<canvas id="grid-canvas"></canvas>
+<canvas id="main-canvas"></canvas>
+
+<div id="hud">
+  <div id="hud-label">Untyped System — No Boundary</div>
+  <div id="phase-label">Phase 1 — The Problem</div>
+  <div id="narrative">Constructor edges and substrate edges are<br>indistinct. Rules fire on everything.<br>C's executor joins the substrate pattern-match.</div>
+</div>
+
+<div id="counter-block">
+  <div id="counter-title">Configs Reached</div>
+  <div id="counter-value">0</div>
+  <div id="counter-sub">exploring...</div>
+</div>
+
+<div id="abort-overlay">
+  ABORT<br><div id="abort-sub">500 configs — no boundary</div>
+</div>
+
+<div id="type-badge">
+  <div id="type-badge-text">TYPE SEPARATION REQUIRED</div>
+</div>
+
+<div id="controls">
+  <button class="ctrl-btn active" id="btn1" onclick="goPhase(1)">1 · Problem</button>
+  <button class="ctrl-btn" id="btn2" onclick="goPhase(2)">2 · Explosion</button>
+  <button class="ctrl-btn" id="btn3" onclick="goPhase(3)">3 · Diagnosis</button>
+  <button class="ctrl-btn" id="btn4" onclick="goPhase(4)">4 · Separation</button>
+  <button class="ctrl-btn" id="btn5" onclick="goPhase(5)">5 · Resolution</button>
+  <button class="ctrl-btn" id="btn-auto" onclick="toggleAuto()">Auto →</button>
+</div>
+
+<div id="phase-dots">
+  <span class="phase-dot active" id="dot1"></span>
+  <span class="phase-dot" id="dot2"></span>
+  <span class="phase-dot" id="dot3"></span>
+  <span class="phase-dot" id="dot4"></span>
+  <span class="phase-dot" id="dot5"></span>
+</div>
+
+<div id="legend">
+  <div class="leg-row">
+    <span class="leg-text">C-edges (constructor)</span>
+    <span class="leg-swatch" style="background:#ffd770; box-shadow:0 0 6px #ffd77066;"></span>
+  </div>
+  <div class="leg-row">
+    <span class="leg-text">S-edges (substrate)</span>
+    <span class="leg-swatch" style="background:#7ecfff; box-shadow:0 0 6px #7ecfff44;"></span>
+  </div>
+  <div class="leg-row">
+    <span class="leg-text">Collision / entanglement</span>
+    <span class="leg-swatch" style="background:#ff6b6b; box-shadow:0 0 6px #ff6b6b66;"></span>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('main-canvas');
+const ctx = canvas.getContext('2d');
+const gridCanvas = document.getElementById('grid-canvas');
+const gCtx = gridCanvas.getContext('2d');
+
+let W, H;
+function resize() {
+  W = canvas.width = gridCanvas.width = window.innerWidth;
+  H = canvas.height = gridCanvas.height = window.innerHeight;
+  drawGrid();
+  initAll();
+}
+window.addEventListener('resize', resize);
+
+function drawGrid() {
+  gCtx.clearRect(0, 0, W, H);
+  gCtx.strokeStyle = '#1a2e44';
+  gCtx.lineWidth = 0.5;
+  const step = 48;
+  for (let x = 0; x < W; x += step) {
+    gCtx.beginPath(); gCtx.moveTo(x, 0); gCtx.lineTo(x, H); gCtx.stroke();
+  }
+  for (let y = 0; y < H; y += step) {
+    gCtx.beginPath(); gCtx.moveTo(0, y); gCtx.lineTo(W, y); gCtx.stroke();
+  }
+}
+
+// ── State ───────────────────────────────────────────────────────────────────
+let phase = 1;
+let t = 0, tStart = 0;
+let dt = 0;
+let autoMode = false;
+let autoTimer = 0;
+let lastTS = 0;
+
+// Shared node layout
+let cx, cy;
+// Constructor C nodes
+let Ca, Cb, Cc, Cd;
+// Substrate nodes
+let Sd, Se, Sf, Sr;
+// A second copy of substrate nodes (for phase 5 comparison)
+let S2d, S2e, S2f, S2r;
+
+// Phase-specific animation state
+let configCount = 0;
+let configTarget = 0;
+let abortVisible = false;
+let badgeVisible = false;
+let separationT = 0;
+let collisionPulse = 0;
+let collisionNodes = [];
+let frozenEdges = [];
+let liveEdges = [];
+let p5BloomT = 0;
+let deltaNodes = [];
+
+function initAll() {
+  cx = W * 0.5;
+  cy = H * 0.5;
+
+  // Constructor nodes — upper-left cluster
+  const cOff = W < 700 ? 50 : 70;
+  Ca = { x: cx - cOff,       y: cy - cOff * 1.1 };
+  Cb = { x: cx - cOff * 1.7, y: cy + cOff * 0.4 };
+  Cc = { x: cx - cOff * 0.3, y: cy + cOff * 0.4 };
+  Cd = { x: cx + cOff * 0.6, y: cy + cOff * 0.1 };
+
+  // Substrate nodes — connected at d
+  Se = { x: cx + cOff * 1.1, y: cy - cOff * 0.8 };
+  Sf = { x: cx + cOff * 1.8, y: cy + cOff * 0.4 };
+  Sr = { x: cx + cOff * 1.1, y: cy + cOff * 1.1 };
+  Sd = Cd; // shared interface node
+
+  // Phase 5 side-by-side layout
+  const off5 = W * 0.24;
+  S2d = { x: cx + off5,         y: cy + cOff * 0.1 };
+  S2e = { x: cx + off5 + cOff,  y: cy - cOff * 0.8 };
+  S2f = { x: cx + off5 + cOff*1.7, y: cy + cOff * 0.4 };
+  S2r = { x: cx + off5 + cOff,  y: cy + cOff * 1.1 };
+}
+
+// ── Primitives ───────────────────────────────────────────────────────────────
+function node(x, y, color, r = 5, glow = true, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (glow) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3.5);
+    g.addColorStop(0, color + 'aa'); g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r * 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 16; ctx.shadowColor = color;
+  }
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function edge2(x1, y1, x2, y2, color, alpha = 1, w = 1.5) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = w;
+  ctx.shadowBlur = 8; ctx.shadowColor = color;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.restore();
+}
+
+function edge3(x1, y1, x2, y2, x3, y3, color, faceA = 0.1, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.globalAlpha = alpha * faceA;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = alpha * 0.7;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.2;
+  ctx.shadowBlur = 10; ctx.shadowColor = color;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+
+function label(txt, x, y, color, size = 9, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.font = `${size}px Space Mono`;
+  ctx.fillText(txt, x, y);
+  ctx.restore();
+}
+
+function labelOrbitron(txt, x, y, color, size = 10, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.font = `bold ${size}px Orbitron`;
+  ctx.fillText(txt, x, y);
+  ctx.restore();
+}
+
+// ── Draw Constructor C ────────────────────────────────────────────────────────
+function drawC(alpha = 1, color = '#ffd770', scale = 1) {
+  const a = Ca, b = Cb, c = Cc, d = Cd;
+  edge3(a.x, a.y, b.x, b.y, c.x, c.y, color, 0.15, alpha);
+  edge2(a.x, a.y, c.x, c.y, color, alpha * 0.9, 2);
+  edge2(c.x, c.y, d.x, d.y, color, alpha * 0.75, 1.5);
+  [a, b, c].forEach(v => node(v.x, v.y, color, 5, true, alpha));
+  node(d.x, d.y, color, 4, true, alpha * 0.9);
+  if (alpha > 0.4) {
+    const off = [[-3,-12],[-14,8],[8,8],[10,4]];
+    ['a','b','c','d'].forEach((l,i) => {
+      const v = [a,b,c,d][i];
+      label(l, v.x + off[i][0], v.y + off[i][1], color, 9, alpha * 0.7);
+    });
+  }
+}
+
+// ── Draw Substrate S ──────────────────────────────────────────────────────────
+function drawS(d, e, f, r, alpha = 1, color = '#7ecfff', showR = false, rAlpha = 1) {
+  edge2(d.x, d.y, e.x, e.y, color, alpha);
+  edge2(d.x, d.y, f.x, f.y, color, alpha * 0.8);
+  node(d.x, d.y, color, 5, true, alpha);
+  node(e.x, e.y, color, 5, true, alpha);
+  node(f.x, f.y, color, 5, true, alpha);
+  if (showR) node(r.x, r.y, color, 3.5, false, rAlpha);
+  if (alpha > 0.4) {
+    label('d', d.x + 10, d.y + 4, color, 9, alpha * 0.7);
+    label('e', e.x - 3, e.y - 11, color, 9, alpha * 0.7);
+    label('f', f.x + 8, f.y + 4, color, 9, alpha * 0.7);
+    if (showR) label('r', r.x + 8, r.y + 4, color, 9, rAlpha * 0.5);
+  }
+}
+
+// ── Scatter nodes (phase 1 & 2) ───────────────────────────────────────────────
+let scatterNodes = [];
+let scatterEdges = [];
+function initScatter(n = 18, hyper = true) {
+  scatterNodes = [];
+  scatterEdges = [];
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+    const r = 80 + Math.random() * 110;
+    scatterNodes.push({
+      x: cx + Math.cos(angle) * r,
+      y: cy + Math.sin(angle) * r,
+      ph: Math.random() * Math.PI * 2,
+      sp: 0.3 + Math.random() * 0.5,
+      op: 0.3 + Math.random() * 0.5,
+      color: Math.random() < 0.35 ? '#ffd770' : '#7ecfff'
+    });
+  }
+  for (let i = 0; i < 14; i++) {
+    const a = Math.floor(Math.random() * n);
+    let b = (a + 1 + Math.floor(Math.random() * 4)) % n;
+    scatterEdges.push({ a, b, ph: Math.random() * Math.PI * 2, sp: 0.3 + Math.random() * 0.5 });
+  }
+  if (hyper) {
+    for (let i = 0; i < 4; i++) {
+      const a = Math.floor(Math.random() * n);
+      const b = (a + 2) % n, c2 = (a + 4) % n;
+      scatterEdges.push({ a, b, c: c2, ph: Math.random() * Math.PI * 2, sp: 0.25 });
+    }
+  }
+}
+
+function drawScatter(alpha = 1) {
+  scatterEdges.forEach(e => {
+    const fl = 0.4 + 0.6 * Math.abs(Math.sin(t * e.sp + e.ph));
+    const na = scatterNodes[e.a], nb = scatterNodes[e.b];
+    if (!na || !nb) return;
+    if (e.c !== undefined) {
+      const nc = scatterNodes[e.c];
+      if (nc) edge3(na.x,na.y, nb.x,nb.y, nc.x,nc.y, na.color, 0.08, fl * alpha);
+    } else {
+      edge2(na.x,na.y, nb.x,nb.y, na.color, fl * 0.5 * alpha, 1.2);
+    }
+  });
+  scatterNodes.forEach(n2 => {
+    const fl = 0.5 + 0.5 * Math.sin(t * n2.sp + n2.ph);
+    node(n2.x, n2.y, n2.color, 3.5, false, fl * n2.op * alpha);
+  });
+}
+
+// ── Phase transitions ─────────────────────────────────────────────────────────
+function goPhase(p) {
+  phase = p;
+  tStart = t;
+  autoTimer = 0;
+  configCount = 0;
+  abortVisible = false;
+  badgeVisible = false;
+  separationT = 0;
+  collisionPulse = 0;
+  p5BloomT = 0;
+  document.getElementById('abort-overlay').style.opacity = '0';
+  document.getElementById('type-badge').style.opacity = '0';
+
+  if (p === 1) { initScatter(18, false); configTarget = 3; }
+  if (p === 2) { initScatter(22, true); configTarget = 500; }
+  if (p === 3) { collisionNodes = [Ca, Cb, Cc, Se, Sf]; }
+  if (p === 4) { separationT = 0; }
+  if (p === 5) {
+    p5BloomT = 0;
+    deltaNodes = [];
+    for (let i = 0; i < 103; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = 20 + Math.random() * 80;
+      const base = S2d;
+      deltaNodes.push({
+        x: base.x + Math.cos(angle) * r,
+        y: base.y + Math.sin(angle) * r,
+        ph: Math.random() * Math.PI * 2,
+        sp: 0.3 + Math.random() * 0.6,
+        delay: Math.random() * 2
+      });
+    }
+  }
+
+  updateHUD();
+  updateDots();
+  document.querySelectorAll('.ctrl-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === p - 1);
+  });
+}
+
+function updateHUD() {
+  const hl = document.getElementById('hud-label');
+  const pl = document.getElementById('phase-label');
+  const narr = document.getElementById('narrative');
+  const cb = document.getElementById('counter-block');
+  const cv = document.getElementById('counter-value');
+  const cs = document.getElementById('counter-sub');
+
+  const data = [
+    {
+      lbl: 'Untyped System — No Boundary',
+      cls: '',
+      ph: 'Phase 1 — The Problem',
+      narr: 'Constructor C-edges and substrate S-edges\nare structurally identical.\nRules fire on any matching pattern.\nC\'s executor joins the substrate rule-match.',
+      cbcls: '', cvcls: '', cscls: '',
+      ctitle: 'Configs Reached',
+      csub: 'exploring...'
+    },
+    {
+      lbl: 'State Space Explosion — ABORT',
+      cls: 'danger',
+      ph: 'Phase 2 — The Explosion',
+      narr: 'C\'s executor matches alongside S-edges.\nSelf-referential branches cascade.\nEvery new config spawns more.\nNo boundary. No signal. Just noise.',
+      cbcls: 'danger', cvcls: 'danger', cscls: 'danger',
+      ctitle: 'Configs Reached',
+      csub: '→ ABORT at 500'
+    },
+    {
+      lbl: 'Entanglement Identified',
+      cls: 'warning',
+      ph: 'Phase 3 — The Diagnosis',
+      narr: 'Rule γ sees {a,b,c} and {d,e,f}\nas equivalent 3-hyperedge patterns.\nC is simultaneously agent and object.\nThe constructor is eating itself.',
+      cbcls: '', cvcls: '', cscls: '',
+      ctitle: 'Rule γ matches',
+      csub: 'C-edge + S-edge'
+    },
+    {
+      lbl: 'Type Separation Enforced',
+      cls: 'insight',
+      ph: 'Phase 4 — The Resolution',
+      narr: 'C-edges are typed: structurally INERT.\nS-edges are typed: EVOLVING.\nRules match S-edges only.\nC gates — but is never touched.',
+      cbcls: '', cvcls: '', cscls: '',
+      ctitle: 'Violations',
+      csub: '→ zero by construction'
+    },
+    {
+      lbl: 'Constructor-Defined Boundary: Δ',
+      cls: 'gold',
+      ph: 'Phase 5 — The Result',
+      narr: 'Without C:  3 configs,  AI ≤ 0.14\nWith C:   106 configs,  AI ≤ 1.00\nΔ = 103 configs — constitutively impossible\nwithout C. Retention: 0 violations.',
+      cbcls: 'gold', cvcls: 'gold', cscls: 'gold',
+      ctitle: '|Δ| Configs',
+      csub: '97.2% constructor-exclusive'
+    }
+  ];
+
+  const d = data[phase - 1];
+  hl.className = d.cls;
+  hl.textContent = d.lbl;
+  pl.textContent = d.ph;
+  narr.className = d.cls;
+  narr.innerHTML = d.narr.replace(/\n/g, '<br>');
+  cb.className = d.cbcls;
+  cv.className = d.cvcls;
+  cs.className = d.cscls;
+  document.getElementById('counter-title').textContent = d.ctitle;
+  cs.textContent = d.csub;
+}
+
+function updateDots() {
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById(`dot${i}`).className =
+      'phase-dot' + (i === phase ? ' active' : i < phase ? ' done' : '');
+  }
+}
+
+// ── Phase renderers ───────────────────────────────────────────────────────────
+
+function renderPhase1(dt2) {
+  // Both C and S visible, same visual weight, interleaved
+  drawScatter(0.35);
+
+  // Draw C in gold
+  drawC(0.85);
+
+  // Draw substrate edges overlapping C space — to show indistinction
+  drawS(Sd, Se, Sf, Sr, 0.85, '#7ecfff', true, 0.4);
+
+  // Gentle pulse suggesting rules firing on everything
+  const pulse = 0.3 + 0.3 * Math.abs(Math.sin(t * 1.4));
+  edge3(Ca.x, Ca.y, Se.x, Se.y, Sf.x, Sf.y, '#aaaaff', 0.06, pulse);
+
+  // Config counter: slow increment to 3
+  if (configCount < 3) configCount = Math.min(3, configCount + dt2 * 0.8);
+  document.getElementById('counter-value').textContent = Math.round(configCount);
+
+  // Annotation
+  const a = Math.min(1, (t - tStart) * 0.5);
+  label('C-edges: gold', Ca.x - 80, Ca.y - 30, '#ffd77088', 8, a);
+  label('S-edges: blue', Se.x + 8, Se.y - 14, '#7ecfff88', 8, a);
+  label('← same rules apply to both', cx - 30, cy + 120, '#ffffff22', 8, a * 0.7);
+}
+
+function renderPhase2(dt2) {
+  // Explosion: configs multiply rapidly
+  drawScatter(0.6);
+  drawC(0.7);
+  drawS(Sd, Se, Sf, Sr, 0.7, '#7ecfff', true, 0.6);
+
+  // Rapid config count
+  const speed = Math.min(8, 1 + (t - tStart) * 3);
+  configCount = Math.min(500, configCount + dt2 * speed * 18);
+  document.getElementById('counter-value').textContent = Math.round(configCount);
+
+  // Additional scatter nodes appearing
+  const burst = Math.min(1, (t - tStart - 1) * 0.5);
+  if (burst > 0) {
+    for (let i = 0; i < 6; i++) {
+      const angle = t * 0.8 + i * 1.04;
+      const r = 60 + Math.abs(Math.sin(t * 0.6 + i)) * 120;
+      const nx = cx + Math.cos(angle) * r;
+      const ny = cy + Math.sin(angle) * r;
+      node(nx, ny, i % 2 === 0 ? '#7ecfff' : '#ffd770', 3, true, burst * 0.5);
+    }
+  }
+
+  // ABORT
+  if (configCount >= 498 && !abortVisible) {
+    abortVisible = true;
+    document.getElementById('abort-overlay').style.opacity = '1';
+  }
+
+  // Collision glow — C eating itself
+  const cp = 0.5 + 0.5 * Math.sin(t * 3.5);
+  edge3(Ca.x, Ca.y, Cb.x, Cb.y, Cc.x, Cc.y, '#ff6b6b', 0.12 * cp, cp * 0.7);
+  edge3(Ca.x, Ca.y, Se.x, Se.y, Sf.x, Sf.y, '#ff6b6b', 0.08 * cp, cp * 0.5);
+}
+
+function renderPhase3(dt2) {
+  // Draw both, then highlight the specific collision
+  drawC(0.7);
+  drawS(Sd, Se, Sf, Sr, 0.7, '#7ecfff', false, 0);
+
+  collisionPulse = Math.abs(Math.sin(t * 2.2));
+
+  // C executor triangle
+  edge3(Ca.x, Ca.y, Cb.x, Cb.y, Cc.x, Cc.y, '#ffd770', 0.2, 0.85);
+
+  // Substrate 3-edge (d, e, f)
+  edge3(Sd.x, Sd.y, Se.x, Se.y, Sf.x, Sf.y, '#7ecfff', 0.15, 0.85);
+
+  // γ collision — red highlight on both
+  const cp = 0.4 + 0.6 * collisionPulse;
+  edge3(Ca.x, Ca.y, Cb.x, Cb.y, Cc.x, Cc.y, '#ff6b6b', 0.18 * cp, cp);
+  edge3(Sd.x, Sd.y, Se.x, Se.y, Sf.x, Sf.y, '#ff6b6b', 0.15 * cp, cp * 0.8);
+
+  // γ label between them
+  const midX = (Ca.x + Sd.x) / 2;
+  const midY = (Ca.y + Sd.y) / 2;
+  const la = Math.min(1, (t - tStart) * 0.6);
+  labelOrbitron('γ sees both as', midX - 50, midY - 15, '#ff6b6baa', 9, la * cp);
+  labelOrbitron('identical patterns', midX - 58, midY, '#ff6b6baa', 9, la * cp);
+
+  // Counter shows γ match count
+  const gcount = Math.round(2 + Math.abs(Math.sin(t * 0.7)) * 3);
+  document.getElementById('counter-value').textContent = gcount;
+
+  // Annotation
+  const a = Math.min(1, (t - tStart) * 0.5);
+  label('{a,b,c}: C-executor', Ca.x - 85, Ca.y - 24, '#ffd770aa', 8, a);
+  label('{d,e,f}: substrate 3-edge', Se.x - 20, Se.y - 18, '#7ecffffaa', 8, a);
+  label('rule γ cannot distinguish them', cx - 90, cy + 130, '#ff6b6b55', 8, a);
+}
+
+function renderPhase4(dt2) {
+  separationT = Math.min(1, separationT + dt2 * 0.6);
+  const s = separationT;
+  const ease = s < 0.5 ? 4*s*s*s : 1 - Math.pow(-2*s+2,3)/2;
+
+  // Separation offset: C drifts left, S drifts right
+  const drift = ease * 60;
+
+  // C-edges shifting left — gold, label INERT
+  ctx.save();
+  ctx.translate(-drift, 0);
+  drawC(0.9, '#ffd770');
+  if (ease > 0.4) {
+    const la = (ease - 0.4) / 0.6;
+    labelOrbitron('C-EDGES', Ca.x - 55, Ca.y - 42, '#ffd770', 10, la);
+    label('structurally INERT', Ca.x - 58, Ca.y - 26, '#ffd770aa', 8, la);
+    label('never matched by rules', Ca.x - 60, Ca.y - 14, '#ffd77066', 7.5, la);
+
+    // Frozen indicator: small lock symbol approximated as box
+    ctx.globalAlpha = la * 0.7;
+    ctx.strokeStyle = '#ffd770';
+    ctx.lineWidth = 1;
+    ctx.shadowBlur = 8; ctx.shadowColor = '#ffd770';
+    ctx.strokeRect(Ca.x - 8, Ca.y + 58, 16, 14);
+    ctx.beginPath();
+    ctx.arc(Ca.x, Ca.y + 58, 6, Math.PI, 0);
+    ctx.stroke();
+    ctx.restore();
+    ctx.save();
+  }
+  ctx.restore();
+
+  // S-edges shifting right — blue, label EVOLVING
+  ctx.save();
+  ctx.translate(drift, 0);
+  drawS(Sd, Se, Sf, Sr, 0.9, '#7ecfff', true, ease);
+  if (ease > 0.4) {
+    const la = (ease - 0.4) / 0.6;
+    labelOrbitron('S-EDGES', Se.x - 10, Se.y - 42, '#7ecfff', 10, la);
+    label('EVOLVING under rules', Se.x - 10, Se.y - 26, '#7ecfffaa', 8, la);
+    label('R_c fires here only', Se.x - 10, Se.y - 14, '#7ecfff66', 7.5, la);
+  }
+  ctx.restore();
+
+  // Dividing line forming
+  if (ease > 0.3) {
+    const la = (ease - 0.3) / 0.7;
+    ctx.save();
+    ctx.globalAlpha = la * 0.4;
+    ctx.strokeStyle = '#c8a8ff';
+    ctx.lineWidth = 1;
+    ctx.shadowBlur = 12; ctx.shadowColor = '#c8a8ff';
+    ctx.setLineDash([6, 8]);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - H * 0.35);
+    ctx.lineTo(cx, cy + H * 0.35);
+    ctx.stroke();
+    ctx.restore();
+
+    labelOrbitron('TYPE BOUNDARY', cx - 56, cy - H * 0.3, '#c8a8ff', 8, la * 0.8);
+  }
+
+  // Badge
+  if (ease > 0.85 && !badgeVisible) {
+    badgeVisible = true;
+    document.getElementById('type-badge').style.opacity = '1';
+    setTimeout(() => { document.getElementById('type-badge').style.opacity = '0'; }, 2000);
+  }
+
+  document.getElementById('counter-value').textContent = '0';
+}
+
+function renderPhase5(dt2) {
+  p5BloomT = Math.min(1, p5BloomT + dt2 * 0.35);
+  const bloom = p5BloomT;
+  const ease = bloom < 0.5 ? 4*bloom*bloom*bloom : 1 - Math.pow(-2*bloom+2,3)/2;
+
+  const leftX = cx - W * 0.22;
+  const rightX = cx + W * 0.22;
+
+  // ── Left panel: R_free only (3 configs) ──────────────────────────────────
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.strokeStyle = '#3a6a8a';
+  ctx.lineWidth = 0.5;
+  ctx.strokeRect(leftX - 110, cy - 140, 220, 260);
+  ctx.restore();
+
+  label('R_free only', leftX - 60, cy - 152, '#3a6a8a', 8, 0.8);
+  label('no constructor', leftX - 48, cy - 140, '#3a6a8a', 7.5, 0.6);
+
+  // 3 simple configs — small nodes
+  const fc = [
+    [leftX, cy - 60],
+    [leftX - 50, cy + 20],
+    [leftX + 50, cy + 20],
+  ];
+  fc.forEach(([fx, fy], i) => {
+    const a = Math.min(1, ease * 1.5);
+    node(fx, fy, '#7ecfff', 4.5, true, a * 0.7);
+    if (i === 1) edge2(fx, fy, fc[0][0], fc[0][1], '#7ecfff', a * 0.3, 1);
+    if (i === 2) edge2(fx, fy, fc[0][0], fc[0][1], '#7ecfff', a * 0.25, 1);
+  });
+
+  label('3 configs', leftX - 22, cy + 80, '#7ecfff88', 9, ease);
+  label('AI ≤ 0.14', leftX - 22, cy + 95, '#7ecfff55', 8, ease);
+  labelOrbitron('mean AI', leftX - 28, cy + 112, '#7ecfff66', 8, ease);
+  labelOrbitron('0.071', leftX - 16, cy + 128, '#7ecfffaa', 14, ease);
+
+  // ── Right panel: R_free + R_c + C (106 configs / Δ = 103) ──────────────
+  ctx.save();
+  ctx.globalAlpha = 0.5 * ease;
+  ctx.strokeStyle = '#ffd77044';
+  ctx.lineWidth = 0.5;
+  ctx.strokeRect(rightX - 110, cy - 140, 220, 260);
+  ctx.restore();
+
+  label('R_free + R_c + C', rightX - 72, cy - 152, '#ffd77088', 8, ease * 0.8);
+  label('constructor present', rightX - 60, cy - 140, '#ffd77066', 7.5, ease * 0.6);
+
+  // Draw small C in corner
+  const cs2 = 0.45;
+  const cOff = 70;
+  const tmpCa = { x: rightX - cOff,       y: cy - cOff * 1.1 };
+  const tmpCb = { x: rightX - cOff * 1.7, y: cy + cOff * 0.4 };
+  const tmpCc = { x: rightX - cOff * 0.3, y: cy + cOff * 0.4 };
+  const tmpCd = { x: rightX + cOff * 0.6 * cs2, y: cy + cOff * 0.1 };
+
+  edge3(tmpCa.x, tmpCa.y, tmpCb.x, tmpCb.y, tmpCc.x, tmpCc.y, '#ffd770', 0.12, ease * 0.7);
+  edge2(tmpCa.x, tmpCa.y, tmpCc.x, tmpCc.y, '#ffd770', ease * 0.8, 1.5);
+  [tmpCa, tmpCb, tmpCc].forEach(v => node(v.x, v.y, '#ffd770', 3.5, true, ease * 0.7));
+
+  // Δ nodes blooming gold
+  const visibleN = Math.floor(ease * 103);
+  deltaNodes.slice(0, visibleN).forEach((dn, i) => {
+    const nx = rightX - 20 + dn.x - S2d.x;
+    const ny = cy + dn.y - S2d.y;
+    const fl = 0.4 + 0.6 * Math.abs(Math.sin(t * dn.sp + dn.ph));
+    node(nx, ny, '#ffd770', 2.5, false, fl * 0.6 * ease);
+  });
+
+  // Stats
+  label('106 configs', rightX - 28, cy + 80, '#ffd77088', 9, ease);
+  label('Δ = 103', rightX - 20, cy + 95, '#ffd770aa', 8, ease);
+  labelOrbitron('mean AI', rightX - 28, cy + 112, '#ffd77066', 8, ease);
+  labelOrbitron('0.611', rightX - 16, cy + 128, '#ffd770cc', 14, ease);
+
+  // Centre annotation
+  if (ease > 0.5) {
+    const la = (ease - 0.5) / 0.5;
+    label('Δ  =  R_c  −  R_free', cx - 68, cy - 165, '#c8a8ffaa', 9, la);
+    label('= 103 configs', cx - 42, cy - 150, '#c8a8ff88', 8, la);
+    label('constitutively impossible without C', cx - 118, cy - 136, '#c8a8ff55', 7.5, la);
+
+    // arrow
+    ctx.save();
+    ctx.globalAlpha = la * 0.4;
+    ctx.strokeStyle = '#c8a8ff';
+    ctx.lineWidth = 1;
+    ctx.shadowBlur = 6; ctx.shadowColor = '#c8a8ff';
+    ctx.beginPath();
+    ctx.moveTo(leftX + 90, cy);
+    ctx.lineTo(rightX - 90, cy);
+    ctx.stroke();
+    // arrowhead
+    ctx.fillStyle = '#c8a8ff';
+    ctx.beginPath();
+    ctx.moveTo(rightX - 86, cy - 5);
+    ctx.lineTo(rightX - 76, cy);
+    ctx.lineTo(rightX - 86, cy + 5);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Counter
+  document.getElementById('counter-value').textContent = Math.round(ease * 103);
+}
+
+// ── Auto mode ─────────────────────────────────────────────────────────────────
+function toggleAuto() {
+  autoMode = !autoMode;
+  const btn = document.getElementById('btn-auto');
+  btn.textContent = autoMode ? 'Auto ■' : 'Auto →';
+  btn.classList.toggle('active', autoMode);
+  if (autoMode) { goPhase(1); autoTimer = 0; }
+}
+
+// ── Main loop ─────────────────────────────────────────────────────────────────
+function render(ts) {
+  const rawDT = (ts - lastTS) / 1000;
+  lastTS = ts;
+  dt = Math.min(rawDT, 0.05);
+  t += dt;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (autoMode) {
+    autoTimer += dt;
+    const durations = [5, 6, 7, 6, 7];
+    if (autoTimer > durations[phase - 1]) {
+      const next = phase === 5 ? 1 : phase + 1;
+      goPhase(next);
+    }
+  }
+
+  if (phase === 1) renderPhase1(dt);
+  if (phase === 2) renderPhase2(dt);
+  if (phase === 3) renderPhase3(dt);
+  if (phase === 4) renderPhase4(dt);
+  if (phase === 5) renderPhase5(dt);
+
+  requestAnimationFrame(render);
+}
+
+resize();
+goPhase(1);
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

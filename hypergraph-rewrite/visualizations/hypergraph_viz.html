@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Constructor-Gated Hypergraph Dynamics</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap');
+  
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    background: #0a0e14;
+    font-family: 'Space Mono', monospace;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+  
+  canvas { 
+    display: block; 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+  }
+  
+  #hud {
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    z-index: 10;
+    pointer-events: none;
+  }
+  
+  #phase-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: #6eb5ff;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    text-shadow: 0 0 10px #6eb5ff66;
+  }
+  
+  #phase-subtitle {
+    font-size: 9px;
+    color: #4a7a9b;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  
+  #narrative {
+    font-size: 9px;
+    line-height: 1.7;
+    color: #5a8aab;
+    max-width: 320px;
+    border-left: 1px solid #1e3a52;
+    padding-left: 14px;
+  }
+  
+  #ai-counter {
+    position: absolute;
+    top: 30px;
+    right: 30px;
+    z-index: 10;
+    text-align: right;
+    border: 1px solid #1e3a52;
+    padding: 12px 20px;
+    background: rgba(10,14,20,0.85);
+    backdrop-filter: blur(4px);
+  }
+  
+  #ai-label {
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    color: #4a7a9b;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  
+  #ai-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 42px;
+    font-weight: 900;
+    color: #6eb5ff;
+    line-height: 1;
+    text-shadow: 0 0 20px #6eb5ff44;
+  }
+  
+  #ai-value.high {
+    color: #ffd770;
+    text-shadow: 0 0 25px #ffd77066;
+  }
+  
+  #legend {
+    position: absolute;
+    bottom: 30px;
+    right: 30px;
+    z-index: 10;
+    pointer-events: none;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  
+  .legend-swatch {
+    width: 24px;
+    height: 2px;
+  }
+  
+  .legend-text {
+    font-size: 8px;
+    letter-spacing: 0.12em;
+    color: #4a7a9b;
+    text-transform: uppercase;
+  }
+  
+  .legend-type {
+    font-size: 7px;
+    color: #3a6a8b;
+    margin-left: 4px;
+  }
+  
+  #controls {
+    position: absolute;
+    bottom: 30px;
+    left: 30px;
+    z-index: 10;
+    display: flex;
+    gap: 10px;
+  }
+  
+  .ctrl-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 0.18em;
+    color: #4a7a9b;
+    border: 1px solid #1e3a52;
+    background: rgba(10,14,20,0.8);
+    padding: 9px 14px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.3s;
+  }
+  
+  .ctrl-btn:hover {
+    color: #6eb5ff;
+    border-color: #6eb5ff44;
+  }
+  
+  .ctrl-btn.active {
+    color: #ffd770;
+    border-color: #ffd77066;
+  }
+  
+  #phase-dots {
+    position: absolute;
+    bottom: 45px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    gap: 12px;
+  }
+  
+  .phase-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #1e3a52;
+    transition: all 0.4s;
+  }
+  
+  .phase-dot.active {
+    background: #6eb5ff;
+    box-shadow: 0 0 10px #6eb5ff88;
+  }
+  
+  .phase-dot.done {
+    background: #ffd770;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="hud">
+  <div id="phase-title">SUBSTRATE S: FREE DYNAMICS (R_FREE)</div>
+  <div id="phase-subtitle">PHASE 1 — BASELINE CONFIGURATION SPACE</div>
+  <div id="narrative">
+    Substrate evolves under unconstrained rules α and β.<br>
+    Node activation and edge propagation only.<br>
+    Configuration space remains sparse.
+  </div>
+</div>
+
+<div id="ai-counter">
+  <div id="ai-label">ASSEMBLY INDEX</div>
+  <div id="ai-value">1</div>
+</div>
+
+<div id="legend">
+  <div class="legend-item">
+    <div class="legend-swatch" style="background: #6eb5ff;"></div>
+    <div class="legend-text">R_free : α — edge creation</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background: #6eb5ff;"></div>
+    <div class="legend-text">R_free : β — propagation</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background: #ffd770;"></div>
+    <div class="legend-text">R_c   : γ — merging</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background: #ffd770;"></div>
+    <div class="legend-text">R_c   : δ — splitting</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background: #ffd770;"></div>
+    <div class="legend-text">R_c   : ε — loop-closing</div>
+  </div>
+</div>
+
+<div id="phase-dots">
+  <div class="phase-dot active"></div>
+  <div class="phase-dot"></div>
+  <div class="phase-dot"></div>
+</div>
+
+<div id="controls">
+  <div class="ctrl-btn" onclick="goPhase(1)">PHASE 1</div>
+  <div class="ctrl-btn" onclick="goPhase(2)">PHASE 2</div>
+  <div class="ctrl-btn" onclick="goPhase(3)">PHASE 3</div>
+  <div class="ctrl-btn" id="btn-auto" onclick="toggleAuto()">AUTO →</div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let W, H, cx, cy;
+let phase = 1;
+let t = 0, lastTS = 0, dt = 0;
+let autoMode = false, autoTimer = 0;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Node positions
+const nodes = [];
+const nodeCount = 6;
+for (let i = 0; i < nodeCount; i++) {
+  const angle = (i / nodeCount) * Math.PI * 2;
+  const r = 140;
+  nodes.push({
+    x: cx + Math.cos(angle) * r,
+    y: cy + Math.sin(angle) * r,
+    vx: 0,
+    vy: 0,
+    active: i < 3, // First 3 active in phase 1
+  });
+}
+
+// Constructor nodes (phase 2+)
+const Ca = { x: cx - 200, y: cy - 100 };
+const Cb = { x: cx - 260, y: cy + 50 };
+const Cc = { x: cx - 140, y: cy + 50 };
+
+// Drawing utilities
+function node(x, y, color, size, glow, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (glow) {
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = color;
+  }
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function edge2(x1, y1, x2, y2, color, alpha, width = 1.5) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = color;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function edge3(x1, y1, x2, y2, x3, y3, color, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color + '15';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = color;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineTo(x3, y3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function label(text, x, y, color, size, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.font = `${size}px 'Space Mono', monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+// Phase transitions
+function goPhase(p) {
+  phase = p;
+  autoTimer = 0;
+  
+  // Update dots
+  document.querySelectorAll('.phase-dot').forEach((dot, i) => {
+    dot.classList.remove('active', 'done');
+    if (i + 1 === p) dot.classList.add('active');
+    if (i + 1 < p) dot.classList.add('done');
+  });
+  
+  // Update HUD
+  const titles = [
+    'SUBSTRATE S: FREE DYNAMICS (R_FREE)',
+    'CONSTRUCTOR C PRESENT (R_FREE + R_C)',
+    'Δ BOUNDARY: CONSTRUCTOR-EXCLUSIVE SPACE'
+  ];
+  const subtitles = [
+    'PHASE 1 — BASELINE CONFIGURATION SPACE',
+    'PHASE 2 — CONSTRUCTOR-GATED DYNAMICS',
+    'PHASE 3 — COMPLEXITY ASYMMETRY'
+  ];
+  const narratives = [
+    'Substrate evolves under unconstrained rules α and β.<br>Node activation and edge propagation only.<br>Configuration space remains sparse.',
+    'Constructor C enables rules γ, δ, ε within its neighbourhood.<br>Merging, splitting, and loop-closing become possible.<br>Complex high-AI structures emerge.',
+    'Without C: 3 configurations, mean AI = 0.071<br>With C: 106 configurations, mean AI = 0.611<br>Δ = 103 configs (97%) constitutively impossible without constructor.'
+  ];
+  
+  document.getElementById('phase-title').textContent = titles[p - 1];
+  document.getElementById('phase-subtitle').textContent = subtitles[p - 1];
+  document.getElementById('narrative').innerHTML = narratives[p - 1];
+}
+
+function toggleAuto() {
+  autoMode = !autoMode;
+  const btn = document.getElementById('btn-auto');
+  btn.textContent = autoMode ? 'AUTO ■' : 'AUTO →';
+  btn.classList.toggle('active', autoMode);
+  if (autoMode) {
+    goPhase(1);
+    autoTimer = 0;
+  }
+}
+
+// Phase renderers
+function renderPhase1() {
+  // Simple substrate: 3 nodes, 2-edges
+  const active = nodes.filter(n => n.active).slice(0, 3);
+  
+  // Draw edges (α and β rules)
+  edge2(active[0].x, active[0].y, active[1].x, active[1].y, '#6eb5ff', 0.5);
+  edge2(active[1].x, active[1].y, active[2].x, active[2].y, '#6eb5ff', 0.4);
+  
+  // Draw nodes
+  active.forEach(n => node(n.x, n.y, '#6eb5ff', 5, true, 0.8));
+  
+  // AI counter animation (cycles 1-2)
+  const ai = 1 + Math.floor(Math.abs(Math.sin(t * 0.5)));
+  document.getElementById('ai-value').textContent = ai;
+  document.getElementById('ai-value').classList.remove('high');
+  
+  // Label
+  label('3 configs reachable', cx, cy + 180, '#6eb5ff66', 10, 0.7);
+}
+
+function renderPhase2() {
+  // Draw constructor C (gold)
+  edge3(Ca.x, Ca.y, Cb.x, Cb.y, Cc.x, Cc.y, '#ffd770', 0.6);
+  edge2(Ca.x, Ca.y, Cc.x, Cc.y, '#ffd770', 0.7);
+  [Ca, Cb, Cc].forEach(n => node(n.x, n.y, '#ffd770', 5, true, 0.9));
+  
+  // Constructor label
+  label('C', Ca.x, Ca.y - 20, '#ffd770aa', 11);
+  
+  // Substrate with more complexity
+  nodes.forEach((n, i) => {
+    if (i < 5) { // More nodes active
+      const pulse = 0.6 + 0.4 * Math.abs(Math.sin(t * 0.8 + i));
+      node(n.x, n.y, '#6eb5ff', 5, true, pulse);
+    }
+  });
+  
+  // Complex edges (γ, δ, ε active)
+  edge3(nodes[0].x, nodes[0].y, nodes[1].x, nodes[1].y, nodes[2].x, nodes[2].y, 
+        '#ffd770', 0.4);
+  edge2(nodes[2].x, nodes[2].y, nodes[3].x, nodes[3].y, '#ffd770', 0.5);
+  edge2(nodes[3].x, nodes[3].y, nodes[4].x, nodes[4].y, '#ffd770', 0.45);
+  
+  // AI counter climbs (1-14)
+  const ai = 1 + Math.floor(13 * (0.5 + 0.5 * Math.sin(t * 0.4)));
+  document.getElementById('ai-value').textContent = ai;
+  document.getElementById('ai-value').classList.add('high');
+  
+  // Label
+  label('106 configs reachable', cx, cy + 180, '#ffd77088', 10, 0.8);
+}
+
+function renderPhase3() {
+  // Split view: baseline (left) vs constructor-gated (right)
+  const leftX = cx - W * 0.2;
+  const rightX = cx + W * 0.2;
+  
+  // Left panel: R_free (3 configs, sparse)
+  ctx.save();
+  ctx.strokeStyle = '#3a6a8a44';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(leftX - 100, cy - 120, 200, 240);
+  ctx.restore();
+  
+  label('R_free only', leftX, cy - 140, '#6eb5ff66', 9);
+  label('3 configs', leftX, cy + 140, '#6eb5ff88', 10);
+  label('mean AI: 0.071', leftX, cy + 158, '#6eb5ff55', 9);
+  
+  // Simple nodes (left)
+  [-40, 0, 40].forEach((dy, i) => {
+    node(leftX, cy + dy, '#6eb5ff', 4, true, 0.6);
+  });
+  edge2(leftX, cy - 40, leftX, cy, '#6eb5ff', 0.4);
+  edge2(leftX, cy, leftX, cy + 40, '#6eb5ff', 0.35);
+  
+  // Right panel: R_free + R_c (106 configs, dense)
+  ctx.save();
+  ctx.strokeStyle = '#ffd77044';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(rightX - 100, cy - 120, 200, 240);
+  ctx.restore();
+  
+  label('R_free + R_c + C', rightX, cy - 140, '#ffd77066', 9);
+  label('106 configs', rightX, cy + 140, '#ffd770aa', 10);
+  label('mean AI: 0.611', rightX, cy + 158, '#ffd77088', 9);
+  
+  // Dense node cluster (right) - 103 Δ configs
+  for (let i = 0; i < 30; i++) {
+    const angle = (i / 30) * Math.PI * 2 + t * 0.3;
+    const r = 40 + (i % 3) * 20;
+    const nx = rightX + Math.cos(angle) * r;
+    const ny = cy + Math.sin(angle) * r;
+    const pulse = 0.4 + 0.3 * Math.abs(Math.sin(t * 0.6 + i * 0.3));
+    node(nx, ny, '#ffd770', 2.5, false, pulse);
+  }
+  
+  // Constructor (small, in corner)
+  const cs = 0.3;
+  edge3(rightX - 70, cy - 80, rightX - 90, cy - 60, rightX - 50, cy - 60,
+        '#ffd770', 0.5);
+  
+  // Δ label (center)
+  label('Δ = 103', cx, cy - 170, '#c8a8ffaa', 11, 0.9);
+  label('97% constructor-exclusive', cx, cy - 155, '#c8a8ff66', 9, 0.8);
+  
+  // Counter shows Δ count
+  document.getElementById('ai-value').textContent = '103';
+  document.getElementById('ai-value').classList.add('high');
+}
+
+// Main loop
+function render(ts) {
+  const rawDT = (ts - lastTS) / 1000;
+  lastTS = ts;
+  dt = Math.min(rawDT, 0.05);
+  t += dt;
+  
+  ctx.clearRect(0, 0, W, H);
+  
+  // Auto-advance
+  if (autoMode) {
+    autoTimer += dt;
+    if (autoTimer > 6) {
+      const nextPhase = phase === 3 ? 1 : phase + 1;
+      goPhase(nextPhase);
+    }
+  }
+  
+  // Render current phase
+  if (phase === 1) renderPhase1();
+  if (phase === 2) renderPhase2();
+  if (phase === 3) renderPhase3();
+  
+  requestAnimationFrame(render);
+}
+
+goPhase(1);
+requestAnimationFrame(render);
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+[... rest of HTML code ...]
+</html>
