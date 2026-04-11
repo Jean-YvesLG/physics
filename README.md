@@ -23,3 +23,28 @@ The model implements:
 - **Assembly Index** computed as minimal derivation depth from the seed configuration
 
 The central object computed is:
+
+`Delta = Reach(S0, R_free ∪ R_c, C) \ Reach(S0, R_free)`
+
+---
+
+## Key Features
+
+- exact BFS enumeration of configuration space
+- canonicalization over substrate-node relabelings
+- typed separation enforcing constructor retention
+- locality-constrained rule activation
+- deterministic reproduction of the reported N=4 results
+
+---
+
+## Repository Structure
+
+```text
+.
+├── hypergraph_core.py                              # Shared deterministic core
+├── simulation_final_refactored.py                  # Deterministic BFS entry point
+├── inverted_stochastic_darwinian_resilience_v3.py  # Stochastic resilience extension
+├── README.md
+├── LICENSE
+└── .gitignore
