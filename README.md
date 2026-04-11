@@ -1,82 +1,161 @@
-**Reference implementation** for the paper _"Constructor-Modulated Causal Substrates and Life-Like Motifs in Discrete Hypergraph Rewrite Systems"_.
+# Reference Implementation
 
-This repo contains the complete simulation code from my Gist, now properly structured as a full GitHub repository. Models simple undirected graphs as hypergraph substrates with motif detection (M1 open triples, M2 triangles, M3 double triangles), rewrite rules (R1 closure, R2 duplication, R3 decay), constructor bias via M3s, and free-energy functional `F = E - T_eff * S`.
+Reference implementation for the paper:
 
-[
+**"Constructor-Defined Possibility Boundaries in Hypergraph Rewrite Systems"**
 
-## Features
+This repository contains the deterministic simulation code used to compute reachability, constructor-gated dynamics, and Assembly Index in a minimal typed hypergraph rewrite system.
 
-- Complete motif detection (M1, M2, M3)
-    
-- Stochastic rewrite rules with constructor bias
-    
-- Free-energy-like functional tracking
-    
-- Persistence + repair event metrics
-    
-- CSV outputs + matplotlib plots matching paper figures
-    
+---
+
+## Overview
+
+The model implements:
+
+- a **typed hypergraph architecture** separating constructor edges (C-edges) and substrate edges (S-edges)
+- a finite substrate with bounded node set and bounded rank
+- local rewrite rules
+  - free rules: `R_free = {alpha, beta}`
+  - constructor-gated rules: `R_c = {gamma, delta, epsilon}`
+- a **constructor neighbourhood constraint** centered on the interface node
+- **breadth-first search (BFS)** enumeration of reachable configurations
+- **canonicalization under isomorphism** over active substrate nodes only
+- **Assembly Index** computed as minimal derivation depth from the seed configuration
+
+The central object computed is:
+
+`Delta = Reach(S0, R_free ∪ R_c, C) \ Reach(S0, R_free)`
+
+---
+
+## Key Features
+
+- exact BFS enumeration of configuration space
+- canonicalization over substrate-node relabelings
+- typed separation enforcing constructor retention
+- locality-constrained rule activation
+- deterministic reproduction of the reported N=4 results
+
+---
+
+## Repository Structure
+
+```text
+.
+├── hypergraph_core.py                 # Shared deterministic core
+├── simulation_final_refactored.py     # Deterministic BFS entry point
+├── plot_static_figures_refactored.py  # Static figure generation
+├── README.md
+├── LICENSE
+└── .gitignore
+```
+
+---
 
 ## Quick Start
 
-bash
+```bash
+python simulation_final_refactored.py
+```
 
-`pip install matplotlib pandas python physics.py`
+This will:
 
-Generates:
+- enumerate reachable configurations under baseline and constructor-gated dynamics
+- compute minimal depths / Assembly Index values
+- report summary statistics consistent with the paper
 
-- `simulation_no_bias.csv` / `simulation_bias.csv`
-    
-- Plots: `F_time_windowed.png`, `motif_counts_time.png`, etc.
-    
+To generate static figures:
 
-## Structure
+```bash
+python plot_static_figures_refactored.py
+```
 
-text
+---
 
-`physics/ ├── physics.py          # Main simulation + plotting (from Gist) ├── README.md ├── LICENSE            # MIT   └── .gitignore         # Python template`
+## Core Concepts
 
-## Usage
+### Configuration
 
-Key function: `run_simulation(G0, T_steps=300, use_bias=True, seed=1)`
+A configuration is a finite set of substrate hyperedges:
 
-Tracks per timestep:
+- nodes are drawn from `SUB_NODES`
+- valid hyperedge arities are 2, 3, and 4
+- constructor edges are fixed in the background and are not stored as part of the evolving substrate configuration
 
-- `F`: Free energy functional
-    
-- `num_M1/2/3`: Motif counts
-    
-- `pers_M*`: Consecutive motif presence
-    
-- `repair_events`: Cumulative repairs post-decay
-    
+### Canonicalization
 
-## Paper Reproduction
+Configurations are identified up to relabeling of **active substrate nodes only**.
 
-Run `python physics.py` to generate exact figure data:
+This ensures that:
 
-- Free energy vs time
-    
-- Motif count evolution
-    
-- Repair event dynamics
-    
-- Triangle persistence
-    
+- structural identity is preserved
+- equivalent labelings are not double-counted during BFS
+- Assembly Index is computed over structural equivalence classes rather than literal node labels
 
-## Customization
+### Constructor Gating
 
-text
+Rules in `R_c` apply only when the matched substrate pattern intersects the constructor neighbourhood.
 
-`T_steps=300      # Simulation length alpha=0.5, gamma=0.5  # Constructor bias strength window=20        # Branching measure window base_T=1.0, beta=0.1  # Effective temperature`
+This enforces:
 
-## Related Work
+- locality of constructive influence
+- a nontrivial possibility boundary
+- strict separation between baseline and constructor-enabled reachability
 
-- [My-first-repo](https://github.com/Jean-YvesLG/My-first-repo) (general playground)
-    
-- Original Gist → imported here with full commit history
-    
+### Assembly Index
+
+Assembly Index is operationalized here as:
+
+> the minimal number of valid rule applications required to derive a configuration from `S0`
+
+It is computed exactly as BFS depth in the finite reachability graph.
+
+---
+
+## Deterministic N=4 Results
+
+These are the fully enumerated results for the `|SUB_NODES| = 4` instance reported in the paper.
+
+| Quantity | Value |
+|---|---:|
+| Reach_free | 3 |
+| Reach_gated | 106 |
+| Delta | 103 |
+| Delta / Reach_gated | 0.9717 |
+| Mean normalized AI — R_free | 0.0714 |
+| Mean normalized AI — Delta | 0.6110 |
+| Asymmetry | +0.540 |
+| Repro-pattern configs in Delta | 92 |
+| Type-system violations | 0 |
+| Retention check | PASS |
+
+Here:
+
+- `Reach_free = Reach(S0, R_free)`
+- `Reach_gated = Reach(S0, R_free ∪ R_c, C)`
+- `Delta = Reach_gated \ Reach_free`
+
+---
+
+## Reproducibility
+
+The implementation provides:
+
+- exact reachability enumeration
+- minimal-path Assembly Index values
+- typed constructor/substrate separation
+- locality-constrained constructor gating
+
+The shared deterministic semantics are defined in `hypergraph_core.py`.
+
+---
+
+## Historical Note
+
+Earlier exploratory versions of this project used stochastic graph-based motif dynamics and free-energy-like scoring. Those prototypes have been superseded by the current typed hypergraph rewrite formulation, which is the version aligned with the paper.
+
+---
 
 ## License
 
-MIT License - see [LICENSE](https://www.perplexity.ai/search/LICENSE)
+MIT License
