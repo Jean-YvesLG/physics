@@ -71,7 +71,7 @@ This will:
 ### Stochastic resilience extension (optional)
 
 ```bash
-python inverted_stochastic_darwinian_resilience_v3.py
+python3 inverted_stochastic_darwinian_resilience_v3.py
 ```
 
 This will:
